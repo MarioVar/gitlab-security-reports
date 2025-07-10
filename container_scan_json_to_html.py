@@ -194,7 +194,7 @@ def main():
     with open("container_scan_report.html", "w", encoding="utf-8") as f:
         f.write(html)
 
-    print("[✓] Report generated: dependency_report.html")
+    print("[✓] Report generated: container_scan_report.html")
 
 
 if __name__ == "__main__":
