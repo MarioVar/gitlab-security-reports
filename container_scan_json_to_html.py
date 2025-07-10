@@ -191,7 +191,7 @@ def main():
 </body>
 </html>"""
 
-    with open("dependency_report.html", "w", encoding="utf-8") as f:
+    with open("container_scan_report.html", "w", encoding="utf-8") as f:
         f.write(html)
 
     print("[✓] Report generated: dependency_report.html")
