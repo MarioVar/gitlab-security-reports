@@ -210,6 +210,10 @@ def main():
         f.write(html)
 
     print("[✓] Report generated: container_scan_report.html")
+<<<<<<< HEAD
+=======
+
+>>>>>>> e6f2e35b915009412ff1f00f2b43c73ae87dd35b
 
 if __name__ == "__main__":
     main()

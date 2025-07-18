@@ -198,7 +198,7 @@ def main():
 </html>
 """
 
-    output_file = "combined_report.html"
+    output_file = "sast_report.html"
     try:
         with open(output_file, "w", encoding="utf-8") as f:
             f.write(html_output)
