@@ -5,6 +5,7 @@ import uuid
 from datetime import datetime
 from markdown import markdown
 from tqdm import tqdm
+from collections import Counter
 
 # Colori per severità
 severity_colors = {
@@ -12,7 +13,8 @@ severity_colors = {
     "High": "Tomato",
     "Medium": "Orange",
     "Low": "MediumSeaGreen",
-    "Info": "SteelBlue"
+    "Info": "SteelBlue",
+    "Unknown": "Gray"
 }
 
 def normalize_vuln(vuln):
@@ -83,17 +85,18 @@ def normalize_vuln(vuln):
         "severity": formatted_severity,
         "details": details_button,
         "location": location_button,
-        'sev-id':severity,
+        'sev-id': severity,
     }, modal_html
 
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python generate_report.py <file1.json> [file2.json ...]")
+        print("Usage: python generate_report_2.py <file1.json> [file2.json ...]")
         sys.exit(1)
 
     all_vulns = []
     modals_html = ""
+    severity_counter = Counter()
 
     for path in tqdm(sys.argv[1:], desc="Processing files"):
         try:
@@ -103,22 +106,30 @@ def main():
                     norm, modal = normalize_vuln(vuln)
                     all_vulns.append(norm)
                     modals_html += modal
+                    severity_counter[norm['sev-id']] += 1
         except Exception as e:
             print(f"[!] Error processing {path}: {e}")
 
-    if not all_vulns:
-        print("[!] No valid vulnerabilities.")
-        sys.exit(1)
-
     rows = ""
     for vuln in all_vulns:
-        # rows += "<tr>" + "".join(f"<td>{vuln[col]}</td>" for col in ["description", "solution", "severity", "details", "location"]) + "</tr>\n"
         rows += f"<tr data-severity='{vuln['sev-id']}'>"
         for col in ["description", "solution", "severity", "details", "location"]:
             rows += f"<td>{vuln[col]}</td>"
         rows += "</tr>\n"
 
     timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
+
+    # Statistiche
+    total = sum(severity_counter.values())
+    stats_html = "<ul>"
+    stats_html += f"<li><strong>Total:</strong> {total}</li>"
+    for sev in ["Critical", "High", "Medium", "Low", "Info", "Unknown"]:
+        stats_html += f"<li><strong>{sev}:</strong> {severity_counter.get(sev, 0)}</li>"
+    stats_html += "</ul>"
+
+    empty_message = ""
+    if total == 0:
+        empty_message = "<div class='alert alert-success'><strong>No Vulnerability Found!</strong></div>"
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -146,7 +157,13 @@ def main():
         <h1>Dependency Vulnerability Report</h1>
         <p><strong>Generated:</strong> {timestamp}</p>
 
-          <div class="mb-3">
+        {empty_message}
+        <div class="mb-4">
+            <h5>Vulnerability Count</h5>
+            {stats_html}
+        </div>
+
+        <div class="mb-3">
             <strong>Filter by severity:</strong><br>
             <button class="btn btn-outline-secondary btn-sm filter-btn" onclick="filterTable('all')">All</button>
             <button class="btn btn-outline-danger btn-sm filter-btn" onclick="filterTable('Critical')">Critical</button>
@@ -156,9 +173,7 @@ def main():
             <button class="btn btn-outline-info btn-sm filter-btn" onclick="filterTable('Info')">Info</button>
         </div>
 
-      
-
-        <table id="vuln-table" class="table table-bordered table-sm" id="vuln-table">
+        <table id="vuln-table" class="table table-bordered table-sm">
             <thead>
                 <tr>
                     <th style="width:25%">Description</th>
@@ -176,27 +191,25 @@ def main():
     {modals_html}
 
     <script>
-          function filterTable(sev) {{
-              const rows = document.querySelectorAll('#vuln-table tbody tr');
-              rows.forEach(row => {{
-                  const severity = row.getAttribute("data-severity");
-                  if (sev === 'all' || severity === sev) {{
-                      row.style.display = '';
-                  }} else {{
-                      row.style.display = 'none';
-                  }}
-              }});
-          }}
-      </script> 
+        function filterTable(sev) {{
+            const rows = document.querySelectorAll('#vuln-table tbody tr');
+            rows.forEach(row => {{
+                const severity = row.getAttribute("data-severity");
+                if (sev === 'all' || severity === sev) {{
+                    row.style.display = '';
+                }} else {{
+                    row.style.display = 'none';
+                }}
+            }});
+        }}
+    </script>
 </body>
 </html>"""
 
-    with open("dependency_report.html", "w", encoding="utf-8") as f:
+    with open("container_scan_report.html", "w", encoding="utf-8") as f:
         f.write(html)
 
-    print("[✓] Report generated: dependency_report.html")
-
+    print("[✓] Report generated: container_scan_report.html")
 
 if __name__ == "__main__":
     main()
-
