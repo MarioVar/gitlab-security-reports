@@ -14,6 +14,7 @@ severity_colors = {
     "Low": "MediumSeaGreen",
     "Info": "SteelBlue"
 }
+
 def inject_severity_attr(html, severities):
     tr_pattern = re.compile(r"<tr>(\s*<td>.*?</td>)", re.DOTALL)
     matches = list(tr_pattern.finditer(html))
@@ -30,26 +31,20 @@ def inject_severity_attr(html, severities):
     return html
 
 def normalize_vulnerability(v):
-    # Remove unused fields
     for key in ["id", "category"]:
         v.pop(key, None)
 
-    # Markdown to HTML
     v["description"] = markdown(v.get("description", ""), extensions=["fenced_code"])
 
-    # Format severity
     severity = v.get("severity", "Unknown")
     color = severity_colors.get(severity, "Black")
     v["severity"] = f"<b><font color='{color}' data-severity='{severity}'>{severity}</font></b>"
 
-    # Scanner name
     v["scanner"] = v.get("scanner", {}).get("name", "Unknown")
 
-    # Location
     loc = v.get("location", {})
     v["location"] = f"{loc.get('file', '?')}:{loc.get('start_line', '?')}"
 
-    # Identifiers → modal
     identifiers = v.pop("identifiers", [])
     if identifiers:
         modal_id = f"modal-{uuid.uuid4().hex}"
@@ -114,25 +109,25 @@ def main():
         except Exception as e:
             print(f"[!] Failed to parse '{file_path}': {e}")
 
+    vuln_count_html = f"<p><strong>Total vulnerabilities:</strong> {len(all_vulnerabilities)}</p>"
+
     if not all_vulnerabilities:
-        print("[!] No valid vulnerabilities found. Aborting.")
-        sys.exit(1)
+        print("[!] No valid vulnerabilities found. Generating empty report.")
+        html_table = "<p class='text-muted'>No vulnerabilities found.</p>"
+        severity_list = []
+    else:
+        html_table = json2html.convert(
+            all_vulnerabilities,
+            escape=False,
+            table_attributes='id="vuln-table" class="table table-bordered table-striped table-sm text-sm"'
+        )
 
-    html_table = json2html.convert(
-        all_vulnerabilities,
-        escape=False,
-        table_attributes='id="vuln-table" class="table table-bordered table-striped table-sm text-sm"'
-
-    )
-
-    # list of severities
-    severity_list = [
-        re.search(r"data-severity='([^']+)'", v["severity"]).group(1)
-        for v in all_vulnerabilities
-    ]
-    html_table = inject_severity_attr(html_table, severity_list)
-
-    html_table = html_table.replace("<th>description</th>", "<th style='width:45%'>Description</th>")
+        severity_list = [
+            re.search(r"data-severity='([^']+)'", v["severity"]).group(1)
+            for v in all_vulnerabilities
+        ]
+        html_table = inject_severity_attr(html_table, severity_list)
+        html_table = html_table.replace("<th>description</th>", "<th style='width:45%'>Description</th>")
 
     html_output = f"""
 <!DOCTYPE html>
@@ -160,8 +155,9 @@ def main():
 <body>
     <div class="container">
         <h1>Combined SAST Vulnerability Report</h1>
-                
-          <div class="mb-3">
+        {vuln_count_html}
+
+        <div class="mb-3">
             <strong>Filter by severity:</strong><br>
             <button class="btn btn-outline-secondary btn-sm filter-btn" onclick="filterTable('all')">All</button>
             <button class="btn btn-outline-danger btn-sm filter-btn" onclick="filterTable('Critical')">Critical</button>
@@ -187,7 +183,7 @@ def main():
                   }}
               }});
           }}
-      </script> 
+        </script> 
 
     </div>
 
@@ -208,4 +204,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
